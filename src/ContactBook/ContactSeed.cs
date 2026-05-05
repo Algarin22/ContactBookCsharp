@@ -6,7 +6,7 @@ public  static class ContactSeed
 {
     public static List<Contact> Contacts = new List<Contact>
     {
-        new Contact("Liam", "Smith", "212-555-0191", "liam.smith@gmail.com"),
+        new Contact("Liam", "Smith", "212-555-0191", ""),
         new Contact("Olivia", "Johnson", "305-555-2234", "olivia.j@outlook.com"),
         new Contact("Noah", "Williams", "787-555-9981", "noah.williams@yahoo.com"),
         new Contact("Emma", "Brown", "646-555-8821", ""),
@@ -103,6 +103,7 @@ public  static class ContactSeed
         new Contact("Jonathan", "Gray", "573-555-7784", ""),
         new Contact("Kennedy", "Mendoza", "", "kennedy.m@yahoo.com"),
         new Contact("Landon", "Ruiz", "660-555-9926", "landon.r@gmail.com"),
-        new Contact("Samantha", "Hughes", "913-555-1145", "")
+        new Contact("Samantha", "Hughes", "913-555-1145", ""),
+        new Contact("Liam", "Smith", "212-555-0191", "liam.smith@gmail.com")
     };
 }

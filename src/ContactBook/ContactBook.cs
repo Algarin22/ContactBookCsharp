@@ -25,8 +25,10 @@ namespace ContactBook
         private List<Contact> allContacts;
         private List<Contact> currentView;
         private int currentPage = 0;
-        private int pageSize = 5;
+        private int pageSize = 10;
         private bool exitRequested = false;
+
+        private readonly ContactMerger merger = new ContactMerger();
 
         public ContactBook(List<Contact> contacts = null!)
         {
@@ -79,7 +81,6 @@ namespace ContactBook
         {
             int totalPages = TotalPages();
 
-            // Anchos de columna
             const int W_NUM   = 4;
             const int W_FNAME = 15;
             const int W_LNAME = 15;
@@ -88,7 +89,6 @@ namespace ContactBook
 
             string sep = new string('─', W_NUM + 1 + W_FNAME + 1 + W_LNAME + 1 + W_PHONE + 1 + W_EMAIL + 2);
 
-            // Cabecera
             Console.WriteLine($"── Contacts (Page {currentPage + 1}/{Math.Max(1, totalPages)}) ──────────────");
             Console.WriteLine(sep);
             Console.WriteLine(
@@ -128,7 +128,6 @@ namespace ContactBook
             Console.WriteLine(sep);
         }
 
-        // Trunca el texto si supera el ancho de la columna
         private static string Truncate(string value, int maxWidth)
         {
             if (string.IsNullOrEmpty(value)) return "";
@@ -325,17 +324,26 @@ namespace ContactBook
         {
             Console.WriteLine("  Order by: [F] First name  [L] Last name  [P] Phone  [E] Email");
             Console.Write("  Choice: ");
-            string choice = (Console.ReadLine() ?? "").Trim().ToUpper();
+            string fieldChoice = (Console.ReadLine() ?? "").Trim().ToUpper();
 
-            allContacts = choice switch
+            Console.WriteLine("  Order: [A] Ascending  [D] Descending");
+            Console.Write("  Choice: ");
+            string orderChoice = (Console.ReadLine() ?? "").Trim().ToUpper();
+
+            ContactComparer.SortField field = fieldChoice switch
             {
-                "F" => allContacts.OrderBy(c => c.GetFName()).ToList(),
-                "L" => allContacts.OrderBy(c => c.GetLName()).ToList(),
-                "P" => allContacts.OrderBy(c => c.GetPhone()).ToList(),
-                "E" => allContacts.OrderBy(c => c.GetEmail()).ToList(),
-                _   => allContacts
+                "F" => ContactComparer.SortField.FirstName,
+                "L" => ContactComparer.SortField.LastName,
+                "P" => ContactComparer.SortField.Phone,
+                "E" => ContactComparer.SortField.Email,
+                _   => ContactComparer.SortField.FirstName
             };
 
+            ContactComparer.SortOrder order = orderChoice == "D"
+                ? ContactComparer.SortOrder.Descending
+                : ContactComparer.SortOrder.Ascending;
+
+            allContacts.Sort(new ContactComparer(field, order));
             RefreshView();
             Console.WriteLine("  Contacts ordered.");
             PressEnterToContinue();
@@ -344,10 +352,7 @@ namespace ContactBook
         private void DeduplicateContacts()
         {
             int before = allContacts.Count;
-
-            // Aprovecha el IEquatable<Contact> implementado en Contact
-            allContacts = allContacts.Distinct().ToList();
-
+            allContacts = merger.Merge(allContacts);
             RefreshView();
             Console.WriteLine($"  Removed {before - allContacts.Count} duplicate(s).");
             PressEnterToContinue();
