@@ -351,10 +351,86 @@ namespace ContactBook
 
         private void DeduplicateContacts()
         {
-            int before = allContacts.Count;
-            allContacts = merger.Merge(allContacts);
+            List<List<Contact>> groups = merger.FindDuplicateGroups(allContacts);
+
+            if (groups.Count == 0)
+            {
+                Console.WriteLine("  No duplicates found.");
+                PressEnterToContinue();
+                return;
+            }
+
+            int totalRemoved = 0;
+
+            foreach (List<Contact> group in groups)
+            {
+                Console.Clear();
+                Console.WriteLine("  ── Duplicate group found ────────────────────────────");
+
+                // Mostrar cada contacto del grupo numerado
+                for (int i = 0; i < group.Count; i++)
+                {
+                    Contact c     = group[i];
+                    string name   = $"{c.GetFName()} {c.GetLName()}".Trim();
+                    string phone  = string.IsNullOrWhiteSpace(c.GetPhone()) ? "(no phone)" : c.GetPhone();
+                    string email  = string.IsNullOrWhiteSpace(c.GetEmail()) ? "(no email)" : c.GetEmail();
+                    Console.WriteLine($"  [{i + 1}] {name,-22} {phone,-18} {email}");
+                }
+
+                Console.WriteLine();
+                Console.WriteLine("  [A] Auto-merge (keep most complete)");
+                Console.WriteLine("  [#] Enter number to keep manually");
+                Console.WriteLine("  [S] Skip this group");
+                Console.Write("  Choice: ");
+
+                string choice = (Console.ReadLine() ?? "").Trim().ToUpper();
+
+                if (choice == "S")
+                {
+                    Console.WriteLine("  Skipped.");
+                    continue;
+                }
+
+                Contact? toKeep = null;
+
+                if (choice == "A")
+                {
+                    // Conservar el más completo automáticamente
+                    toKeep = group.OrderByDescending(c =>
+                        (string.IsNullOrWhiteSpace(c.GetFName()) ? 0 : 1) +
+                        (string.IsNullOrWhiteSpace(c.GetLName()) ? 0 : 1) +
+                        (string.IsNullOrWhiteSpace(c.GetPhone()) ? 0 : 1) +
+                        (string.IsNullOrWhiteSpace(c.GetEmail()) ? 0 : 1)
+                    ).First();
+                }
+                else if (int.TryParse(choice, out int pick) && pick >= 1 && pick <= group.Count)
+                {
+                    toKeep = group[pick - 1];
+                }
+                else
+                {
+                    Console.WriteLine("  Invalid choice, skipping group.");
+                    PressEnterToContinue();
+                    continue;
+                }
+
+                // Eliminar todos del grupo excepto el elegido
+                foreach (Contact c in group)
+                {
+                    if (!ReferenceEquals(c, toKeep))
+                    {
+                        allContacts.Remove(c);
+                        totalRemoved++;
+                    }
+                }
+
+                string keptName = $"{toKeep.GetFName()} {toKeep.GetLName()}".Trim();
+                Console.WriteLine($"  Kept: {keptName}");
+                PressEnterToContinue();
+            }
+
             RefreshView();
-            Console.WriteLine($"  Removed {before - allContacts.Count} duplicate(s).");
+            Console.WriteLine($"\n  Done. Removed {totalRemoved} duplicate(s).");
             PressEnterToContinue();
         }
 

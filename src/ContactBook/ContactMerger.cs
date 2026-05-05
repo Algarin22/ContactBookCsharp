@@ -19,7 +19,7 @@ public class ContactMerger
         public int Find(int x)
         {
             if (parents[x] != x)
-                parents[x] = Find(parents[x]); // path compression
+                parents[x] = Find(parents[x]);
             return parents[x];
         }
 
@@ -30,7 +30,6 @@ public class ContactMerger
 
             if (rootX == rootY) return;
 
-            // union by rank
             if (rank[rootX] < rank[rootY])      parents[rootX] = rootY;
             else if (rank[rootX] > rank[rootY]) parents[rootY] = rootX;
             else { parents[rootY] = rootX; rank[rootX]++; }
@@ -41,28 +40,13 @@ public class ContactMerger
 
     // ── Public API ───────────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Recibe la lista completa de contactos, detecta duplicados por
-    /// (fname+lname) Y (teléfono o email), fusiona cada grupo conservando
-    /// el contacto más completo y devuelve la lista limpia.
-    /// </summary>
     public List<Contact> Merge(List<Contact> contacts)
     {
         int n = contacts.Count;
         if (n <= 1) return new List<Contact>(contacts);
 
-        var ds = new DuplicateSet(n);
+        var ds = BuildDuplicateSet(contacts);
 
-        for (int i = 0; i < n; i++)
-        {
-            for (int j = i + 1; j < n; j++)
-            {
-                if (AreDuplicates(contacts[i], contacts[j]))
-                    ds.Union(i, j);
-            }
-        }
-
-        // Agrupar índices por raíz
         var groups = new Dictionary<int, List<int>>();
         for (int i = 0; i < n; i++)
         {
@@ -72,7 +56,6 @@ public class ContactMerger
             groups[root].Add(i);
         }
 
-        // Por cada grupo, conservar el contacto más completo
         var result = new List<Contact>();
         foreach (var group in groups.Values)
         {
@@ -89,39 +72,62 @@ public class ContactMerger
         return result;
     }
 
+    public List<List<Contact>> FindDuplicateGroups(List<Contact> contacts)
+    {
+        int n = contacts.Count;
+        if (n <= 1) return new List<List<Contact>>();
+
+        var ds = BuildDuplicateSet(contacts);
+
+        var groups = new Dictionary<int, List<Contact>>();
+        for (int i = 0; i < n; i++)
+        {
+            int root = ds.Find(i);
+            if (!groups.ContainsKey(root))
+                groups[root] = new List<Contact>();
+            groups[root].Add(contacts[i]);
+        }
+
+        // Solo devolver grupos con más de un contacto
+        return groups.Values.Where(g => g.Count > 1).ToList();
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private DuplicateSet BuildDuplicateSet(List<Contact> contacts)
+    {
+        int n = contacts.Count;
+        var ds = new DuplicateSet(n);
+
+        for (int i = 0; i < n; i++)
+            for (int j = i + 1; j < n; j++)
+                if (AreDuplicates(contacts[i], contacts[j]))
+                    ds.Union(i, j);
+
+        return ds;
+    }
 
     private static bool AreDuplicates(Contact a, Contact b)
     {
-        bool sameName = string.Equals(a.GetFName(), b.GetFName(), StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(a.GetLName(), b.GetLName(), StringComparison.OrdinalIgnoreCase);
-
-        if (!sameName) return false;
-
         bool aHasPhone = !string.IsNullOrWhiteSpace(a.GetPhone());
         bool bHasPhone = !string.IsNullOrWhiteSpace(b.GetPhone());
         bool aHasEmail = !string.IsNullOrWhiteSpace(a.GetEmail());
         bool bHasEmail = !string.IsNullOrWhiteSpace(b.GetEmail());
 
-        // Al menos uno tiene teléfono y coinciden
         bool samePhone = aHasPhone && bHasPhone
-                    && string.Equals(a.GetPhone(), b.GetPhone(), StringComparison.OrdinalIgnoreCase);
+                      && string.Equals(a.GetPhone(), b.GetPhone(), StringComparison.OrdinalIgnoreCase);
 
-        // Al menos uno tiene email y coinciden
         bool sameEmail = aHasEmail && bHasEmail
-                    && string.Equals(a.GetEmail(), b.GetEmail(), StringComparison.OrdinalIgnoreCase);
+                      && string.Equals(a.GetEmail(), b.GetEmail(), StringComparison.OrdinalIgnoreCase);
 
-        // Ninguno tiene nada → solo nombre basta
+        bool sameName = string.Equals(a.GetFName(), b.GetFName(), StringComparison.OrdinalIgnoreCase)
+                     && string.Equals(a.GetLName(), b.GetLName(), StringComparison.OrdinalIgnoreCase);
+
         bool bothEmpty = !aHasPhone && !bHasPhone && !aHasEmail && !bHasEmail;
 
-        // Uno tiene teléfono y el otro no tiene nada con qué contradecirlo
-        bool phoneWithNoConflict = (aHasPhone || bHasPhone)
-                                && (!aHasPhone || !bHasPhone || samePhone)
-                                && (!aHasEmail || !bHasEmail || sameEmail)
-                                && (samePhone || (!aHasPhone && bHasPhone) || (aHasPhone && !bHasPhone));
+        return sameEmail || samePhone || (sameName && bothEmpty);
+    }
 
-        return samePhone || sameEmail || bothEmpty || phoneWithNoConflict;
-    }    
     private static int CountFilledFields(Contact c)
     {
         int count = 0;
